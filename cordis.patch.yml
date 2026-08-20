@@ -1,0 +1,13 @@
+# dsh-mineru-plugin bundle patch
+#
+# Mounts the MinerU document/image-to-Markdown vision plugin (dsh/index.js via
+# the package root export). Pure tool-bridge: registers a `mineru_read_image`
+# native tool so a text-only dsh model can read a local image/PDF path into
+# Markdown through the official MinerU v4 API.
+#
+# The API key is NOT stored in this file. It is resolved, in priority order,
+# from the profile's cordis.patch.yml (`config.apiKey`), the MINERU_API_KEY
+# environment variable, or ~/.mineru/config ({"apiKey":"sk-..."}). See README.md.
+- insert:
+    - id: dsh-mineru-plugin
+      name: dsh-mineru-plugin

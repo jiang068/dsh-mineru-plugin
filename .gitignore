@@ -1,0 +1,7 @@
+node_modules/
+*.log
+.env
+.env.*
+# keep real secrets out of git
+*.key
+**/~/.mineru/config

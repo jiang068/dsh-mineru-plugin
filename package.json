@@ -1,0 +1,38 @@
+{
+  "name": "dsh-mineru-plugin",
+  "version": "1.0.0",
+  "description": "MinerU document/image-to-Markdown vision bridge for DeepSeek Harness (dsh): OCR pages, PDFs, screenshots and scans into structured Markdown for text-only models",
+  "type": "module",
+  "main": "./dsh/index.js",
+  "exports": {
+    ".": "./dsh/index.js",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "test": "node scripts/smoke-test.mjs"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "mineru",
+    "ocr",
+    "vision",
+    "markdown",
+    "plugin"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "files": [
+    "dsh",
+    "cordis.patch.yml",
+    "LICENSE",
+    "README.md"
+  ]
+}
