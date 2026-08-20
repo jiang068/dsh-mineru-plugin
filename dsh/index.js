@@ -270,7 +270,7 @@ function readImageTool(toolName, pluginConfig) {
         path: {
           type: 'string',
           description:
-            'Absolute local file path (e.g. /root/.dsh-qqbot/media/xxx.png) or an http(s) URL of the image/PDF/document to read.',
+            'Absolute local file path (e.g. /path/to/xxx.png) or an http(s) URL of the image/PDF/document to read.',
         },
         prompt: {
           type: 'string',
