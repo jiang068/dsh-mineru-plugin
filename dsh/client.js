@@ -97,7 +97,7 @@ window.__ModuleLoader__.load({
             var react = require('react')
             var Card = CardFactory(react)
             scope.slots.inject('settings.plugin.item', function* () {
-              yield scope.slots.register({ name: 'settings.plugin.item', id: 'dsh-mineru-plugin', key: 'dsh-mineru', order: 30 }, Card)
+              yield scope.slots.register({ name: 'settings.plugin.item', id: 'mineru', key: 'mineru', order: 30 }, Card)
             })
           } catch (e) {
             console.error('[dsh-mineru] settings card skipped: ' + e)
