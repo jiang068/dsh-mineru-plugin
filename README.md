@@ -67,19 +67,18 @@ systemctl restart dsh-web
 
 ## 设置面板(网页设置卡片)
 
-插件带一个 dsh **设置面板**(网页设置 → 插件 / MinerU 分区),可设置 API key 与路由:
+插件带一个 dsh **设置面板**,卡片出现在「设置 → 插件」列表里(MinerU),可设置 API key 与路由:
 
 - **API key**:查看"已配置/未配置",输入新 key 保存或一键清除。明文不回显。
 - **路由**:`auto`(默认)/ `v1` / `v4`。
 
-前端(`src/client/*`)+ 后端路由(`/api/dsh-mineru/config`,由 `dsh/index.js` 的
-webServer 提供)配合工作,key 持久化到 `~/.mineru/config`(权限 0600)。
+客户端是 `dsh/client.js`(**手写零依赖**,遵循 dsh 官方 `settings.plugin.item`
+插槽,与 @liustack/modlens 同构),服务器 `dsh/index.js` 用 scoped
+`ctx.inject(['webServer'])`/`ctx.inject(['settings'])` 提供 `/api/dsh-mineru/config`
+路由与 settings namespace。key 持久化到 `~/.mineru/config`(权限 0600)。
 
-构建前端:先 `pnpm add -D esbuild`(开发机可回退用已有 esbuild),再
-```bash
-pnpm run build:client
-```
-产物为 `dist/client.js`,由 dsh 经 `/plugins/dsh-mineru-plugin/client.js` 分发。
+**无需 esbuild 构建**:`dsh/client.js` 直接由 dsh 经
+`/plugins/dsh-mineru-plugin/client.js` (发布的包名) 分发。
 
 ---
 

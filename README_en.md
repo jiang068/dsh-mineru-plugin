@@ -74,24 +74,21 @@ untracked config file).
 
 ## Settings panel (web settings card)
 
-Included is a dsh **settings panel** (web Settings → Plugins / MinerU section) to
-manage the API key and route:
+Included is a dsh **settings panel** card, listed under Settings → Plugins
+(MinerU), to manage the API key and route:
 
 - **API key**: shows "configured / unconfigured", lets you save a new key or
   clear it. The plaintext is never returned.
 - **Route**: `auto` (default) / `v1` / `v4`.
 
-The frontend (`src/client/*`) talks to the backend
-`/api/dsh-mineru/config` (served by `dsh/index.js` webServer); keys persist to
-`~/.mineru/config` (mode 0600).
+The client is `dsh/client.js` (hand-written, zero-dependency; follows dsh's
+official `settings.plugin.item` slot, same shape as @liustack/modlens). The
+server `dsh/index.js` uses scoped `ctx.inject(['webServer'])` /
+`ctx.inject(['settings'])` to provide `/api/dsh-mineru/config` and the settings
+namespace; keys persist to `~/.mineru/config` (mode 0600).
 
-Build the frontend — first `pnpm add -D esbuild` (a dev machine may fall back to
-an existing esbuild install), then:
-```bash
-pnpm run build:client
-```
-Output is `dist/client.js`, served by dsh at
-`/plugins/dsh-mineru-plugin/client.js`.
+**No esbuild build step**: `dsh/client.js` is served by dsh at
+`/plugins/<package-name>/client.js`.
 
 
 ## Tool usage
