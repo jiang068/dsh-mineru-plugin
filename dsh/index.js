@@ -26,7 +26,7 @@ import { Readable } from 'node:stream'
 import { inflateRawSync } from 'node:zlib'
 
 export const name = 'dsh-mineru-plugin'
-export const inject = ['tools']
+export const inject = ['tools', 'webServer']
 
 const V4_BASE = 'https://mineru.net/api/v4'
 const V1_BASE = 'https://mineru.net/api/v1'
@@ -369,6 +369,115 @@ function readImageTool(toolName, pluginConfig) {
   }
 }
 
+
+// --- Config store (settings panel backend) -----------------------------------
+const MINERU_CONFIG_PATH = join(homedir(), '.mineru', 'config')
+
+async function readRuntimeConfig() {
+  // returns { apiKey (masked), hasKey, route }
+  let raw = null
+  try { raw = JSON.parse(await fs.readFile(MINERU_CONFIG_PATH, 'utf8')) } catch { raw = null }
+  const effective = (pid) => {
+    const c = typeof pid?.apiKey === 'string' ? pid.apiKey.trim() : ''
+    if (c) return c
+    if (process.env.MINERU_API_KEY && process.env.MINERU_API_KEY.trim()) return process.env.MINERU_API_KEY.trim()
+    return raw?.apiKey || raw?.token || ''
+  }
+  return {
+    hasKey: Boolean(effective({})),
+    route: raw?.route ?? 'auto',
+    maskKey: null, // never send plaintext
+    configPath: MINERU_CONFIG_PATH,
+  }
+}
+
+async function writeRuntimeConfig(patch) {
+  await fs.mkdir(join(homedir(), '.mineru'), { recursive: true })
+  let current = {}
+  try { current = JSON.parse(await fs.readFile(MINERU_CONFIG_PATH, 'utf8')) } catch {}
+  const updated = { ...current, ...patch }
+  await fs.writeFile(MINERU_CONFIG_PATH, JSON.stringify(updated, null, 2), { mode: 0o600 })
+  return updated
+}
+
+// --- webServer config route + quick command ----------------------------------
+function registerConfigBackend(ctx, config) {
+  if (typeof ctx?.webServer?.register !== 'function') {
+    console.error('[dsh-mineru-plugin] webServer unavailable, settings route skipped')
+    return
+  }
+  const send = (res, status, body) => {
+    if (typeof res?.writeHead === 'function') {
+      res.writeHead(status, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(body))
+    }
+  }
+  ctx.webServer.register({
+    name: 'dsh-mineru-config',
+    kind: 'exact',
+    path: '/api/dsh-mineru/config',
+    handler: async (req, res) => {
+      try {
+        if (req?.method === 'GET') {
+          const st = await readRuntimeConfig()
+          return send(res, 200, { ...st, apiKeySet: st.hasKey })
+        }
+        if (req?.method === 'POST') {
+          const chunks = []
+          for await (const c of req) {
+            chunks.push(c)
+            if (chunks.join('').length > 64 * 1024) return send(res, 413, { ok: false, error: 'too big' })
+          }
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')
+          const patch = {}
+          if (typeof body.apiKey === 'string' && body.apiKey.trim()) patch.apiKey = body.apiKey.trim()
+          if (typeof body.route === 'string' && ['auto', 'v1', 'v4'].includes(body.route)) patch.route = body.route
+          // empty apiKey string meaning clear it
+          if (body.apiKey === '') patch.apiKey = ''
+          const updated = await writeRuntimeConfig(patch)
+          const st = await readRuntimeConfig()
+          return send(res, 200, { ok: true, route: updated.route ?? 'auto', hasKey: st.hasKey, apiKeySet: st.hasKey })
+        }
+        return send(res, 405, { error: 'method not allowed' })
+      } catch (e) {
+        return send(res, 400, { error: String(e?.message || e) })
+      }
+    },
+  })
+}
+
+// --- quick command (QQ/message level via ctx.commands if exposed) -------------
+function registerQuickCommand(ctx, config) {
+  if (typeof ctx?.commands?.register === 'function') {
+    ctx.commands.register('mineru', {
+      description: '查看/设置 MinerU API key 或路由 (用法: /mineru [set-key sk-...|set-route v1|v4|auto|status])',
+      async execute(args, execCtx) {
+        const argv = args?.trim?.().split(/\s+/) || []
+        const cmd = argv[0] || 'status'
+        if (cmd === 'status') {
+          const st = await readRuntimeConfig()
+          return `MinerU: key=${st.hasKey ? '已配置' : '未配置'}，route=${st.route ?? 'auto'}`
+        }
+        if (cmd === 'set-key') {
+          const key = argv[1]
+          if (!key) return '用法: /mineru set-key sk-...'
+          await writeRuntimeConfig({ apiKey: key })
+          return 'MinerU API key 已保存（已脱敏存储到 ~/.mineru/config）'
+        }
+        if (cmd === 'set-route') {
+          const r = argv[1]
+          if (!['v1', 'v4', 'auto'].includes(r)) return 'route 可选: v1 / v4 / auto'
+          await writeRuntimeConfig({ route: r })
+          return `MinerU 路由已设为 ${r}`
+        }
+        return '用法: /mineru [status|set-key sk-...|set-route v1|v4|auto]'
+      },
+    })
+  } else {
+    console.warn('[dsh-mineru-plugin] ctx.commands unavailable, quick command skipped (settings route still works)')
+  }
+}
+
 export function apply(ctx, config = {}) {
   const toolName = config.toolName || 'mineru_read_image'
   try {
@@ -376,4 +485,6 @@ export function apply(ctx, config = {}) {
   } catch (error) {
     console.error(`[dsh-mineru-plugin] ${toolName} registration skipped: ${error}`)
   }
+  registerConfigBackend(ctx, config)
+  registerQuickCommand(ctx, config)
 }
