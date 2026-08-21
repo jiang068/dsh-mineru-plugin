@@ -65,6 +65,24 @@ systemctl restart dsh-web
 
 ---
 
+## 设置面板(网页设置卡片)
+
+插件带一个 dsh **设置面板**(网页设置 → 插件 / MinerU 分区),可设置 API key 与路由:
+
+- **API key**:查看"已配置/未配置",输入新 key 保存或一键清除。明文不回显。
+- **路由**:`auto`(默认)/ `v1` / `v4`。
+
+前端(`src/client/*`)+ 后端路由(`/api/dsh-mineru/config`,由 `dsh/index.js` 的
+webServer 提供)配合工作,key 持久化到 `~/.mineru/config`(权限 0600)。
+
+构建前端:先 `pnpm add -D esbuild`(开发机可回退用已有 esbuild),再
+```bash
+pnpm run build:client
+```
+产物为 `dist/client.js`,由 dsh 经 `/plugins/dsh-mineru-plugin/client.js` 分发。
+
+---
+
 ## 双 API 智能路由
 
 注册一个工具 `mineru_read_image`,带 `output` 参数(`markdown` 默认 / `latex` / `html`)。

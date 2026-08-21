@@ -6,9 +6,12 @@
   "main": "./dsh/index.js",
   "exports": {
     ".": "./dsh/index.js",
+    "./client": "./dist/client.js",
     "./package.json": "./package.json"
   },
   "scripts": {
+    "build": "node scripts/build-client.mjs",
+    "build:client": "node scripts/build-client.mjs",
     "test": "node scripts/smoke-test.mjs"
   },
   "keywords": [
@@ -24,6 +27,9 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
     }
   },
   "engines": {
@@ -33,6 +39,9 @@
     "dsh",
     "cordis.patch.yml",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "dist/",
+    "src/",
+    "scripts/"
   ]
 }

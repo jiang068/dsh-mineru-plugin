@@ -70,8 +70,29 @@ untracked config file).
 
 > ⚠️ The root filesystem may be read-only (`mount` shows `ro`). Remount before
 > writing to `/`-level paths: `sudo mount -o remount,rw /`.
-
 ---
+
+## Settings panel (web settings card)
+
+Included is a dsh **settings panel** (web Settings → Plugins / MinerU section) to
+manage the API key and route:
+
+- **API key**: shows "configured / unconfigured", lets you save a new key or
+  clear it. The plaintext is never returned.
+- **Route**: `auto` (default) / `v1` / `v4`.
+
+The frontend (`src/client/*`) talks to the backend
+`/api/dsh-mineru/config` (served by `dsh/index.js` webServer); keys persist to
+`~/.mineru/config` (mode 0600).
+
+Build the frontend — first `pnpm add -D esbuild` (a dev machine may fall back to
+an existing esbuild install), then:
+```bash
+pnpm run build:client
+```
+Output is `dist/client.js`, served by dsh at
+`/plugins/dsh-mineru-plugin/client.js`.
+
 
 ## Tool usage
 
