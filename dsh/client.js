@@ -2,7 +2,7 @@
 // Contributes a card to the official "Settings → Plugins" list via the
 // `settings.plugin.item` slot, reading/writing /api/dsh-mineru/config.
 window.__ModuleLoader__.load({
-  id: "dsh-mineru-plugin",
+  id: 'dsh-mineru-plugin',
   factory: (require) => {
     var module = { exports: {} }
     var exports = module.exports
@@ -90,14 +90,14 @@ window.__ModuleLoader__.load({
 
     function registerCard(ctx) {
       if (typeof ctx.inject !== 'function') return
-      ctx.inject('slots', function (scope) {
+      ctx.inject(['slots'], function (scope) {
         fetch('/api/dsh-mineru/config').then(function (response) {
           if (response.status === 404) return
           try {
             var react = require('react')
             var Card = CardFactory(react)
             scope.slots.inject('settings.plugin.item', function* () {
-              yield scope.slots.register({ name: 'settings.plugin.item', id: "dsh-mineru-plugin", key: 'dsh-mineru', order: 30 }, Card)
+              yield scope.slots.register({ name: 'settings.plugin.item', id: 'dsh-mineru-plugin', key: 'dsh-mineru', order: 30 }, Card)
             })
           } catch (e) {
             console.error('[dsh-mineru] settings card skipped: ' + e)

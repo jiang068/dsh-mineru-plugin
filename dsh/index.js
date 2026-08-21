@@ -26,7 +26,7 @@ import { Readable } from 'node:stream'
 import { inflateRawSync } from 'node:zlib'
 
 export const name = 'dsh-mineru-plugin'
-export const inject = ['tools']
+export const inject = ['tools', 'webServer']
 
 const V4_BASE = 'https://mineru.net/api/v4'
 const V1_BASE = 'https://mineru.net/api/v1'
@@ -491,34 +491,26 @@ export function apply(ctx, config = {}) {
   } catch (error) {
     console.error(`[dsh-mineru-plugin] ${toolName} registration skipped: ${error}`)
   }
-  // webServer 是可选的（只在 web profile 存在）：用 scoped ctx.inject 拿，
-  // 不在顶级 inject 里声明，避免 headless profile 因缺少该服务而启动失败。
+
+  try {
+    if (ctx.webServer) {
+      registerConfigBackend(ctx, config)
+    }
+  } catch (error) {
+    console.error(`[dsh-mineru-plugin] config backend skipped: ${error}`)
+  }
+
+  // settings namespace: rc.7 设置页按 namespace 分发包卡(settings.plugin.item)。缺了它
+  // “设置→插件”不会 dispatch 本插件卡片。
   if (ctx.inject && typeof ctx.inject === 'function') {
-    ctx.inject(['webServer'], (scope) => {
-      try { registerConfigBackend(scope, config) }
-      catch (error) { console.error(`[dsh-mineru-plugin] config route skipped: ${error}`) }
-    })
-    // settings namespace：让“设置→插件”里能 dispatch 我们的卡片（rc.7 按 namespace 分发卡片）
     ctx.inject(['settings'], (scope) => {
       try {
         const passThrough = (value) => ({ ...(value ?? {}) })
-        passThrough.toJSON = () => ({
-          uid: 0,
-          refs: { 0: { type: 'object', meta: { default: {} }, dict: {} } },
-        })
+        passThrough.toJSON = () => ({ uid: 0, refs: { 0: { type: 'object', meta: { default: {} }, dict: {} } } })
         scope.settings.register('mineru', passThrough, { base: {} })
       } catch (error) {
         console.error(`[dsh-mineru-plugin] settings namespace skipped: ${error}`)
       }
     })
-    // quick command（QQ/消息层）可选：有 commands 服务才注册
-    ctx.inject(['commands'], (scope) => {
-      try { registerQuickCommand(scope, config) }
-      catch (error) { console.error(`[dsh-mineru-plugin] quick command skipped: ${error}`) }
-    })
-  } else {
-    // 老式宿主无 ctx.inject：退化为直接（尽量）挂 web/tools
-    registerConfigBackend(ctx, config)
-    registerQuickCommand(ctx, config)
   }
 }
