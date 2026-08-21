@@ -65,6 +65,24 @@ systemctl restart dsh-web
 
 ---
 
+## 双 API 智能路由
+
+注册一个工具 `mineru_read_image`,带 `output` 参数(`markdown` 默认 / `latex` / `html`)。
+
+路由逻辑:
+- **小 markdown 任务**(文件 ≤10MB、≤20页、output=markdown)→ 优先走 **v1**
+  (免费、无需 token)。若 v1 撞到 IP 限频(429)则降级 v4。
+- **latex / html 输出** → 走 **v4**(v1 仅 markdown),自动加
+  `extra_formats=["latex"|"html"]`。
+- **无 token + latex/html** → 清晰报错,提示需 key(或改用小文件 markdown,
+  v1 可无 key 处理)。
+
+v1 agent API **无需 token**(本地文件):`POST /api/v1/agent/parse/file`
+→ PUT 签名 URL → `GET /api/v1/agent/parse/{task_id}` → `markdown_url`。
+v4 需 token(见配置),从结果 zip 提取 `full.md` / `full.tex` / `full.html`。
+
+---
+
 ## 工具用法
 
 ### 签名
