@@ -1,10 +1,14 @@
 // MinerU settings card (browser half) — mirrors @liustack/modlens.
 // Contributes a card to the official "Settings → Plugins" list via the
-// `settings.plugin.item` slot, reading/writing /api/dsh-mineru/config.
+// `settings.plugin` item slot, reading/writing /api/dsh-mineru/config.
 //
-// The card is wrapped in the same card chrome as the settings-plugins tab's
-// other cards (`YyYd_a_card`: border-l2, bg-layer-3, radius 12) so it belongs
-// visually inside the tab instead of rendering as a bare, borderless div.
+// The card chrome is the official native plugin card's, copied from the
+// working modlens implementation (@liustack/modlens/dsh/client.js): a
+// collapsible header row (title + subtitle + rotating chevron) that opens a
+// body section, with field controls drawn from the official
+// `@deepseek-ai/dsh-client-ui-primitives` package (`ui.Input`) — not from
+// hand-written styling. This makes the card a sibling of the built-in three
+// (终端 / Agent 循环 / 网页搜索) rather than a lodger.
 window.__ModuleLoader__.load({
   id: 'dsh-mineru',
   factory: (require) => {
@@ -16,127 +20,282 @@ window.__ModuleLoader__.load({
         title: 'MinerU', subtitle: 'Document / image → Markdown vision bridge.',
         key: 'API key', cfg: 'configured', uncfg: 'not configured',
         hint1: 'A key is stored (never shown here).', hint0: 'No key set. latex/html needs a key; small markdown can use v1 keyless.',
-        ph1: 'leave empty to keep current key', ph0: 'paste sk-...', save: 'Save', clear: 'Clear key',
-        route: 'Route', r_auto: 'auto (v1 first, v4 fallback)', r_v1: 'v1 only (keyless)', r_v4: 'v4 only (needs key)',
+        ph1: 'leave empty to keep current key', ph0: 'paste sk-...',
+        route: 'Route', r_auto: 'auto（auto: v1 first, v4 fallback）', r_v1: 'v1 only (keyless)', r_v4: 'v4 only (needs key)',
+        save: 'Save', clear: 'Clear key', loading: 'Loading…', saved: 'Saved', failed: 'Save failed',
       },
       zh: {
         title: 'MinerU', subtitle: '文档 / 图片 → Markdown 视觉桥。',
         key: 'API 密钥', cfg: '已配置', uncfg: '未配置',
         hint1: '已保存密钥（不回显明文）。', hint0: '未设置密钥。latex/html 需要 key；小文件 markdown 可用 v1 免 key。',
-        ph1: '留空则保留当前 key', ph0: '粘贴 sk-...', save: '保存', clear: '清除 key',
+        ph1: '留空则保留当前 key', ph0: '粘贴 sk-...',
         route: '路由', r_auto: 'auto（优先 v1，失败降级 v4）', r_v1: '仅 v1（免 key）', r_v4: '仅 v4（需 key）',
+        save: '保存', clear: '清除 key', loading: '加载中…', saved: '已保存', failed: '保存失败',
       },
     }
-    function text() {
-      var l = (document.documentElement.lang || '').toLowerCase()
-      return l.indexOf('zh') === 0 ? T.zh : T.en
-    }
 
-    function CardFactory(react) {
+    function ConfigCard(react, ui, localeRef) {
       var h = react.createElement
-      var useState = react.useState
-      var useEffect = react.useEffect
+      var Input = ui.Input
 
-      function load(set) {
-        return fetch('/api/dsh-mineru/config').then(function (r) {
-          if (!r.ok) return null
-          return r.json()
-        }).then(function (d) {
-          if (d) set({ hasKey: !!d.hasKey, route: d.route || 'auto' })
-          return d
-        }).catch(function () { return null })
+      function labels() {
+        var l = (document.documentElement.lang || '').toLowerCase()
+        return l.indexOf('zh') === 0 ? T.zh : T.en
       }
 
-      return function Card() {
-        var st = useState({ hasKey: false, route: 'auto' })
-        var data = st[0]
-        var set = st[1]
-        var kd = useState('')
-        var key = kd[0]
-        var setKey = kd[1]
-        useEffect(function () { load(set) }, [])
-        var t = text()
+      return function MineruCard() {
+        var openState = react.useState(false)
+        var open = openState[0]
+        var setOpen = openState[1]
 
-        function postKey(v) {
+        var summaryState = react.useState(null)
+        var summary = summaryState[0]
+
+        var draftState = react.useState('')
+        var draft = draftState[0]
+        var setDraft = draftState[1]
+
+        var routeState = react.useState('auto')
+        var route = routeState[0]
+        var setRoute = routeState[1]
+
+        var noteState = react.useState('')
+        var note = noteState[0]
+        var setNote = noteState[1]
+
+        var t = labels()
+
+        var load = react.useCallback(function () {
+          fetch('/api/dsh-mineru/config')
+            .then(function (r) { return r.json() })
+            .then(function (d) {
+              summaryState[1]({ hasKey: Boolean(d && d.hasKey) })
+              routeState[1]((d && d.route) || 'auto')
+              setNote('')
+            })
+            .catch(function () { setNote(t.failed) })
+        }, [])
+
+        react.useEffect(function () {
+          if (open && summary === null) load()
+        }, [open, summary, load])
+
+        function saveKey() {
+          setNote(t.saving || '')
           fetch('/api/dsh-mineru/config', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ apiKey: v }),
-          }).then(function () { return load(set) }).then(function () { setKey('') }).catch(function () {})
+            body: JSON.stringify({ apiKey: draft }),
+          })
+            .then(function () { return load() })
+            .then(function () { setDraft(''); setNote(t.saved) })
+            .catch(function () { setNote(t.failed) })
+        }
+        function clearKey() {
+          setNote(t.saving || '')
+          fetch('/api/dsh-mineru/config', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ apiKey: '' }),
+          })
+            .then(function () { return load() })
+            .then(function () { setNote(t.saved) })
+            .catch(function () { setNote(t.failed) })
         }
         function changeRoute(r) {
+          setRoute(r)
           fetch('/api/dsh-mineru/config', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ route: r }),
-          }).then(function () { return load(set) }).catch(function () {})
-        }
-        function clear() {
-          fetch('/api/dsh-mineru/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ apiKey: '' }) }).then(function () { return load(set) }).catch(function () {})
+          }).then(function () { return load() }).catch(function () { setNote(t.failed) })
         }
 
-        return h('div', { style: cardWrap },
-          h('div', { style: headerRow },
-            h('span', { style: sName }, t.title),
-            h('span', { style: badge(data.hasKey) }, data.hasKey ? t.cfg : t.uncfg),
-          ),
-          h('p', { style: sSubtitle }, t.subtitle),
-          h('section', { style: bodySec },
-            h('p', { style: sHint }, data.hasKey ? t.hint1 : t.hint0),
-            h('div', { style: sRow },
-              h('input', { type: 'text', style: sInput, placeholder: data.hasKey ? t.ph1 : t.ph0, value: key, onChange: function (e) { setKey(e.target.value) } }),
-              h('button', { style: sBtn, onClick: function () { postKey(key) } }, t.save),
-            ),
-            data.hasKey ? h('button', { style: sBtnDanger, onClick: clear }, t.clear) : null,
-            h('div', { style: sRow, marginTop: '10px' },
-              h('span', { style: sLabel }, t.route),
-              h('select', { style: sSel, value: data.route || 'auto', onChange: function (e) { changeRoute(e.target.value) } },
-                h('option', { value: 'auto' }, 'auto'),
-                h('option', { value: 'v1' }, 'v1'),
-                h('option', { value: 'v4' }, 'v4'),
+        // Native collapsible-card chrome (copied from modlens-default cards).
+        var chevron = function (isOpen) {
+          return h(
+            'svg',
+            {
+              width: 16,
+              height: 16,
+              viewBox: '0 0 16 16',
+              style: {
+                color: 'var(--dsw-alias-label-tertiary, rgba(127,127,127,0.8))',
+                flex: 'none',
+                transition: 'transform .16s',
+                transform: isOpen ? 'rotate(180deg)' : 'none',
+              },
+            },
+            h('path', {
+              d: 'M4 6l4 4 4-4',
+              fill: 'none',
+              stroke: 'currentColor',
+              strokeWidth: 1.5,
+              strokeLinecap: 'round',
+              strokeLinejoin: 'round',
+            }),
+          )
+        }
+
+        var fieldRow = function (label, control, key) {
+          return h(
+            'label',
+            { key: key, style: { display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 0', borderTop: '1px solid var(--dsw-alias-border-l2, rgba(127,127,127,0.35))' } },
+            h('div', { style: { fontSize: '13px', color: 'var(--dsw-alias-label-secondary, inherit)' } }, label),
+            control,
+          )
+        }
+
+        var body = null
+        if (open) {
+          if (summary === null) {
+            body = h('div', { style: { padding: '12px 0', color: 'var(--dsw-alias-label-tertiary, rgba(127,127,127,0.8))', fontSize: '13px' } }, note || t.loading)
+          } else {
+            body = h(
+              'div',
+              null,
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px', padding: '12px 0', color: 'var(--dsw-alias-label-tertiary, rgba(127,127,127,0.8))', fontSize: '13px' } },
+                (summary.hasKey ? t.hint1 : t.hint0)),
+              fieldRow(
+                t.key,
+                h(Input, {
+                  type: 'password',
+                  value: draft,
+                  placeholder: summary.hasKey ? t.ph1 : t.ph0,
+                  autoComplete: 'off',
+                  onChange: function (e) { setDraft(e.target.value); setNote('') },
+                  style: { width: '100%', boxSizing: 'border-box' },
+                }),
+                'key',
               ),
-              h('span', { style: sRouteHint }, (data.route === 'v4' ? t.r_v4 : data.route === 'v1' ? t.r_v1 : t.r_auto)),
+              h(
+                'div',
+                {
+                  key: 'route',
+                  style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 0', borderTop: '1px solid var(--dsw-alias-border-l2, rgba(127,127,127,0.35))' },
+                },
+                h('span', { style: { fontSize: '13px', color: 'var(--dsw-alias-label-secondary, inherit)' } }, t.route),
+                h(
+                  'select',
+                  {
+                    value: route,
+                    onChange: function (e) { changeRoute(e.target.value) },
+                    style: {
+                      appearance: 'auto',
+                      flex: 1,
+                      padding: '6px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--dsw-alias-border-l2, rgba(127,127,127,0.35))',
+                      background: 'var(--dsw-alias-bg-layer-2, rgba(127,127,127,0.10))',
+                      color: 'inherit',
+                      font: 'inherit',
+                      fontSize: '13px',
+                    },
+                  },
+                  h('option', { value: 'auto' }, t.r_auto),
+                  h('option', { value: 'v1' }, t.r_v1),
+                  h('option', { value: 'v4' }, t.r_v4),
+                ),
+              ),
+              h(
+                'div',
+                {
+                  key: 'footer',
+                  style: {
+                    borderTop: '1px solid var(--dsw-alias-border-l2, rgba(127,127,127,0.35))',
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '12px 0 4px',
+                  },
+                },
+                h('span', { style: { marginRight: 'auto', fontSize: '12px', color: 'var(--dsw-alias-label-tertiary, rgba(127,127,127,0.8))' } }, note),
+                summary.hasKey
+                  ? h(
+                      'button',
+                      {
+                        type: 'button',
+                        onClick: clearKey,
+                        style: {
+                          appearance: 'none', font: 'inherit', fontSize: '13px', lineHeight: 1.5, cursor: 'pointer',
+                          border: '1px solid var(--dsw-alias-border-l2, rgba(127,127,127,0.35))', borderRadius: '8px',
+                          padding: '5px 14px', background: 'none', color: 'var(--dsw-alias-label-secondary, inherit)',
+                        },
+                      },
+                      t.clear,
+                    )
+                  : null,
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    onClick: saveKey,
+                    style: {
+                      appearance: 'none', font: 'inherit', fontSize: '13px', lineHeight: 1.5, cursor: 'pointer',
+                      border: '1px solid transparent', borderRadius: '8px', padding: '5px 14px',
+                      background: 'var(--dsw-alias-label-primary, currentColor)', color: 'var(--dsw-alias-bg-layer-3, rgba(127,127,127,0.05))',
+                    },
+                  },
+                  t.save,
+                ),
+              ),
+            )
+          }
+        }
+
+        return h(
+          'div',
+          {
+            style: {
+              border: '1px solid var(--dsw-alias-border-l2, rgba(127,127,127,0.35))',
+              background: open ? 'var(--dsw-alias-bg-layer-2, rgba(127,127,127,0.10))' : 'var(--dsw-alias-bg-layer-3, rgba(127,127,127,0.05))',
+              borderRadius: '12px',
+              transition: 'border-color .16s, background .16s',
+            },
+          },
+          h(
+            'button',
+            {
+              type: 'button',
+              'aria-expanded': open,
+              onClick: function () { setOpen(!open) },
+              style: {
+                appearance: 'none', width: '100%', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer',
+                background: 'none', border: 0, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
+              },
+            },
+            h(
+              'div',
+              { style: { flex: 1, minWidth: 0 } },
+              h('div', { style: { fontSize: '14px', fontWeight: 600 } }, t.title),
+              h('div', { style: { color: 'var(--dsw-alias-label-tertiary, rgba(127,127,127,0.8))', fontSize: '13px', lineHeight: 1.5 } }, t.subtitle),
             ),
+            chevron(open),
           ),
+          open ? h('div', { style: { margin: '0 16px', paddingBottom: '8px' } }, body) : null,
         )
       }
-    }
-
-    // Card chrome matching the settings-plugins tab's `YyYd_a_card` wrapper.
-    var cardWrap = { padding: '0 0 14px', fontSize: '13px', lineHeight: 1.5, color: 'var(--dsw-alias-label-primary, inherit)', border: '1px solid var(--dsw-alias-border-l2, rgba(127,127,127,0.35))', background: 'var(--dsw-alias-bg-layer-3, rgba(127,127,127,0.05))', borderRadius: '12px', listStyle: 'none' }
-    var headerRow = { display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 16px 4px' }
-    var sName = { fontSize: '15px', fontWeight: 600, color: 'var(--dsw-alias-label-primary, inherit)', flex: 1, minWidth: 0 }
-    var sSubtitle = { margin: 0, color: 'var(--dsw-alias-label-tertiary, #999)', fontSize: '13px', padding: '0 16px 8px' }
-    var bodySec = { margin: '0 16px', paddingTop: '12px', borderTop: '1px solid var(--dsw-alias-border-l2, rgba(127,127,127,0.25))', display: 'flex', flexDirection: 'column', gap: '8px' }
-    var sRow = { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }
-    var sLabel = { fontSize: '12px', fontWeight: 600, color: 'var(--dsw-alias-label-secondary, #888)' }
-    var sHint = { margin: 0, color: 'var(--dsw-alias-label-tertiary, #999)', fontSize: '12px' }
-    var sInput = { flex: 1, minWidth: 160, boxSizing: 'border-box', padding: '6px 10px', fontSize: '13px', color: 'var(--dsw-alias-label-primary, inherit)', background: 'var(--dsw-alias-bg-layer-2, inherit)', border: '1px solid var(--dsw-alias-border-l2, rgba(127,127,127,0.25))', borderRadius: '8px' }
-    var sSel = { appearance: 'auto', padding: '6px 8px', fontSize: '13px', color: 'var(--dsw-alias-label-primary, inherit)', background: 'var(--dsw-alias-bg-layer-2, inherit)', border: '1px solid var(--dsw-alias-border-l2, rgba(127,127,127,0.25))', borderRadius: '8px' }
-    var sRouteHint = { fontSize: '12px', color: 'var(--dsw-alias-label-tertiary, #999)' }
-    var sBtn = { appearance: 'none', border: 0, background: '#1677ff', color: '#fff', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }
-    var sBtnDanger = { marginTop: '4px', appearance: 'none', border: '1px solid #ef4444', background: 'transparent', color: '#ef4444', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', alignSelf: 'flex-start' }
-
-    function badge(ok) {
-      var c = ok ? '#22c55e' : '#f7ad31'
-      return { fontSize: '11px', padding: '1px 8px', borderRadius: '999px', border: '1px solid ' + c, color: c, whiteSpace: 'nowrap' }
     }
 
     function registerCard(ctx) {
       if (typeof ctx.inject !== 'function') return
       ctx.inject(['slots'], function (scope) {
-        fetch('/api/dsh-mineru/config').then(function (response) {
-          if (response.status === 404) return
-          try {
-            var react = require('react')
-            var Card = CardFactory(react)
-            scope.slots.inject('settings.plugin.item', function* () {
-              yield scope.slots.register({ name: 'settings.plugin.item', id: 'mineru', key: 'mineru', order: 30 }, Card)
-            })
-          } catch (e) {
-            console.error('[dsh-mineru] settings card skipped: ' + e)
-          }
-        }).catch(function () {})
+        fetch('/api/dsh-mineru/config')
+          .then(function (response) {
+            if (response.status === 404) return
+            try {
+              var react = require('react')
+              var ui = require('@deepseek-ai/dsh-client-ui-primitives')
+              var Card = ConfigCard(react, ui)
+              scope.slots.inject('settings.plugin.item', function* () {
+                yield scope.slots.register({ name: 'settings.plugin.item', id: 'mineru', key: 'mineru', order: 30 }, Card)
+              })
+            } catch (error) {
+              console.error('[dsh-mineru] settings card skipped: ' + error)
+            }
+          })
+          .catch(function () {})
       })
     }
 
