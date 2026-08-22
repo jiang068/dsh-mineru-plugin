@@ -122,6 +122,19 @@ v4 需 token(见配置),从结果 zip 提取 `full.md` / `full.tex` / `full.html
 - `path` 必填,接受本地绝对路径或 http(s) URL。若传 URL,插件会先下载到临时文件再上传。
 - 工具把解析结果**直接作为 Markdown 文本返回**(latex/html 输出时返回对应格式)。
 
+### 通过 IM / QQ 渠道发文件也能读
+
+在接入了 dsh IM 渠道(如 `@tencent-connect/dsh-qqbot`)时,富媒体附件会被自动
+下载到本地(默认 `~/.dsh-qqbot/media/`),并在消息里以 `Image:` / `Video:` / `File:`
+本地绝对路径的形式提示模型。因此你**直接从 QQ 发 PDF、Word、图片都可以读**:
+模型看到 `File: /root/.dsh-qqbot/media/xxx.pdf` 这类路径就会自动调用
+`mineru_read_image` 解析(插件工具描述明确声明支持 PDF/Office 文档)。
+
+- 要求 IM 渠道的富媒体下载开启(qqbot 默认 `media.enabled=true`、`media.maxMB=200`)。
+- 下发的文档/文件只要 ≤200MB 就会被下载并解析。
+- 已实测:QQ 直接发的考研数学公式 PDF(485KB)成功解析出表格 + 一整套
+  LaTeX 公式。
+
 ### 返回示例
 
 对一张"文字+公式"图片,返回的 Markdown 形如:

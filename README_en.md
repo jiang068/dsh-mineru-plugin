@@ -112,6 +112,22 @@ Registers a single native tool, `mineru_read_image` (rename via
 - The tool returns the parsed result **directly as Markdown text** (or the
   corresponding format for latex/html output).
 
+### Sending files via an IM / QQ channel also works
+
+When a dsh IM channel is connected (e.g. `@tencent-connect/dsh-qqbot`), rich
+media attachments are automatically downloaded to disk (default
+`~/.dsh-qqbot/media/`) and surfaced to the model as a local absolute path
+prefixed with `Image:` / `Video:` / `File:`. So you can send **PDFs, Word docs,
+or images straight from QQ** and they can be read: the model sees
+`File: /root/.dsh-qqbot/media/xxx.pdf` and automatically calls `mineru_read_image`
+to parse it (the tool description explicitly declares support for PDF/Office docs).
+
+- Requires the IM channel's rich-media download to be enabled (qqbot defaults:
+  `media.enabled=true`, `media.maxMB=200`).
+- Any document/file up to 200MB is downloaded and parsed.
+- Verified: a 485KB math-formula PDF sent via QQ was successfully parsed into a
+  table plus a full set of LaTeX formulas.
+
 ### Example result
 
 For a text+formula image, the returned Markdown looks like:
