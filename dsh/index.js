@@ -290,7 +290,12 @@ function readImageTool(toolName, pluginConfig) {
     },
     output: {
       schema: { type: 'string' },
-      render: (result) => (typeof result === 'string' ? result : JSON.stringify(result ?? '')),
+      // dsh expects output.render to produce an array of content blocks
+      // (e.g. [{ type:'text', text }]), not a bare string. Returning a raw
+      // string makes later pipeline stages call content.some(...) on a string
+      // and crash with "content.some is not a function".
+      // render receives (args, value); `value` is the execute() return.
+      render: (_args, value) => [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value ?? '') }],
     },
     timeoutMs: TOOL_TIMEOUT_MS,
     isConcurrencySafe: () => true,
@@ -361,11 +366,14 @@ function readImageTool(toolName, pluginConfig) {
                           : ['full.md']
           let markdown, zipName = 'full.md'
           try { ({ text: markdown, name: zipName } = await extractFromZip(v4.zipUrl, zipTargets)) }
-          catch (e) { return { summary: `Parsed ${v4.fileName} via v4, but extracting output failed: ${e.message}`, fileName: v4.fileName, fullZipUrl: undefined, route: 'v4' } }
+          catch (e) { return `[MinerU] Parsed ${v4.fileName} via v4, but extracting the output file failed: ${e.message}` }
           route = 'v4'
           result = { summary: `Parsed ${v4.fileName} via MinerU v4 precise-parse API (${outputMode}).`, fileName: v4.fileName, fullMarkdown: markdown, markdown, format: zipName, fullZipUrl: v4.zipUrl, route: 'v4' }
         }
-        return { ...result, ...(args.prompt ? { prompt: args.prompt } : {}) }
+        // dsh validates the execute return against output.schema (string), so we
+        // must hand back plain Markdown text, not a metadata object.
+        const text = result?.fullMarkdown || result?.markdown || ''
+        return (args.prompt ? `[reader focus: ${args.prompt}]\n\n` : '') + text
       } finally {
         if (cleanupTemp) await cleanupTemp()
       }

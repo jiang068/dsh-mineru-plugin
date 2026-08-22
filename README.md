@@ -11,6 +11,10 @@ provider 不做文档解析的场景。
 
 MinerU 是国内服务(上海AI实验室 / OpenDataLab),通过公网**直连**即可,无需代理。
 
+> **作者与致谢 / Authors。** 本项目由 **jiang068** 与 **DeepSeek Harness** 共同撰写：
+> 功能设计、MinerU 对接与文档由 jiang068 主导;代码实现、调试、merging 与工具链
+> 由 DeepSeek Harness 完成;二者协作产出(见 git 提交中的 author/committer)。
+
 ---
 
 ## 为什么需要这个插件
@@ -116,11 +120,11 @@ v4 需 token(见配置),从结果 zip 提取 `full.md` / `full.tex` / `full.html
 ```
 
 - `path` 必填,接受本地绝对路径或 http(s) URL。若传 URL,插件会先下载到临时文件再上传。
-- 返回对象含 `fullMarkdown`(亦为 `markdown`)、`fileName`、`fullZipUrl`。
+- 工具把解析结果**直接作为 Markdown 文本返回**(latex/html 输出时返回对应格式)。
 
 ### 返回示例
 
-对一张"文字+公式"图片,`fullMarkdown` 形如:
+对一张"文字+公式"图片,返回的 Markdown 形如:
 
 ```latex
 若直接采用真实状态进行状态反馈（$u = r - kx$），闭环系统为：

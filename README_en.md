@@ -109,12 +109,12 @@ Registers a single native tool, `mineru_read_image` (rename via
 
 - `path` is required and takes a local absolute path or an http(s) URL. When a
   URL is given, the plugin downloads it to a temp file before upload.
-- The result object contains `fullMarkdown` (also `markdown`), `fileName`, and
-  `fullZipUrl`.
+- The tool returns the parsed result **directly as Markdown text** (or the
+  corresponding format for latex/html output).
 
 ### Example result
 
-For a text+formula image, `fullMarkdown` looks like:
+For a text+formula image, the returned Markdown looks like:
 
 ```latex
 若直接采用真实状态进行状态反馈（$u = r - kx$），闭环系统为：
